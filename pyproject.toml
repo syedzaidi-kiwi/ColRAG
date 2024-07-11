@@ -2,10 +2,13 @@
 name = "colrag"
 version = "0.1.0"
 description = "A RAG pipeline using ColBERT via RAGatouille"
-authors = ["Your Name <your.email@example.com>"]
+authors = ["Syed Asad syed.asad@kiwitech.com"]
 license = "MIT"
 readme = "README.md"
 packages = [{include = "colrag"}]
+homepage = "https://syedzaidi-kiwi.github.io/"
+repository = "https://github.com/syedzaidi-kiwi/ColRAG.git"
+documentation = "https://github.com/syedzaidi-kiwi/ColRAG/blob/main/README.md"
 
 [tool.poetry.dependencies]
 python = "^3.9"
