@@ -84,8 +84,8 @@ def process_file(file_path: str) -> Dict[str, Any]:
         if isinstance(content, list):
             return {
                 "documents": content,
-                "document_ids": [file_path] * len(content),
-                "document_metadatas": [{"source": file_path}] * len(content)
+                "document_ids": [f"{file_path}_{i}" for i in range(len(content))],
+                "document_metadatas": [{"source": file_path, "index": i} for i in range(len(content))]
             }
         else:
             return {
