@@ -59,7 +59,7 @@ Then run:
 
 ```bash
 poetry install
-
+```
 ## 🚀 Quick Start
 
 Here's a simple example to get you started:
