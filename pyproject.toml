@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "colrag"
-version = "0.1.1"
+version = "0.1.7"
 description = "A RAG pipeline using ColBERT via RAGatouille"
 authors = ["Syed Asad <syed.asad@kiwitech.com>"]
 license = "MIT"

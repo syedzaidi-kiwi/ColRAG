@@ -5,13 +5,15 @@ import os
 
 logger = get_logger(__name__)
 
-def load_model_from_index(index_name: str) -> RAGPretrainedModel:
-    index_path = os.path.join(".ragatouille", "colbert", "indexes", index_name)
+def load_model_from_index(index_path: str) -> RAGPretrainedModel:
     logger.info(f"Loading model from index: {index_path}")
     return RAGPretrainedModel.from_index(index_path)
 
-def retrieve_and_rerank_documents(model: RAGPretrainedModel, query: str, k: int = 10, rerank_k: int = 100) -> List[Dict[str, Any]]:
+def retrieve_and_rerank_documents(index_path: str, query: str, k: int = 10, rerank_k: int = 100) -> List[Dict[str, Any]]:
     logger.info(f"Retrieving and reranking documents for query: {query}")
+    
+    # Load the model from the index
+    model = load_model_from_index(index_path)
     
     # First, retrieve a larger set of documents
     initial_results = model.search(query, k=rerank_k)
@@ -42,12 +44,12 @@ def retrieve_and_rerank_documents(model: RAGPretrainedModel, query: str, k: int 
     
     return final_results
 
-def retrieve_and_rerank_multiple_documents(model: RAGPretrainedModel, queries: List[str], k: int = 10, rerank_k: int = 100) -> List[List[Dict[str, Any]]]:
+def retrieve_and_rerank_multiple_documents(index_path: str, queries: List[str], k: int = 10, rerank_k: int = 100) -> List[List[Dict[str, Any]]]:
     logger.info(f"Retrieving and reranking documents for {len(queries)} queries")
     
     all_results = []
     for query in queries:
-        results = retrieve_and_rerank_documents(model, query, k, rerank_k)
+        results = retrieve_and_rerank_documents(index_path, query, k, rerank_k)
         all_results.append(results)
     
     return all_results

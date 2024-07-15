@@ -12,6 +12,8 @@ from concurrent.futures import ProcessPoolExecutor
 from rich.progress import Progress, TextColumn, BarColumn, TimeRemainingColumn
 from rich.console import Console
 import warnings
+from itertools import islice
+from tqdm import tqdm 
 
 warnings.filterwarnings("ignore")
 
@@ -82,12 +84,23 @@ def process_file(file_path: str) -> Dict[str, Any]:
     try:
         content = read_file(file_path)
         if isinstance(content, list):
+            documents = []
+            document_ids = []
+            document_metadatas = []
+            for i, doc in enumerate(content):
+                if not isinstance(doc, str):
+                    doc = str(doc)  # Convert to string if it's not already
+                documents.append(doc)
+                document_ids.append(f"{file_path}_{i}")
+                document_metadatas.append({"source": file_path})
             return {
-                "documents": content,
-                "document_ids": [f"{file_path}_{i}" for i in range(len(content))],
-                "document_metadatas": [{"source": file_path, "index": i} for i in range(len(content))]
+                "documents": documents,
+                "document_ids": document_ids,
+                "document_metadatas": document_metadatas
             }
         else:
+            if not isinstance(content, str):
+                content = str(content)  # Convert to string if it's not already
             return {
                 "documents": [content],
                 "document_ids": [file_path],
@@ -98,7 +111,7 @@ def process_file(file_path: str) -> Dict[str, Any]:
         return {"documents": [], "document_ids": [], "document_metadatas": []}
 
 def index_documents(input_directory: str, index_name: str, model_name: str = config.MODEL_NAME) -> str:
-    console.print(f"[bold green]Starting indexing process for directory:[/bold green] {input_directory}")
+    logger.info(f"Starting indexing process for directory: {input_directory}")
     
     all_files = []
     for root, _, files in os.walk(input_directory):
@@ -109,43 +122,39 @@ def index_documents(input_directory: str, index_name: str, model_name: str = con
     document_ids = []
     document_metadatas = []
 
-    with Progress(
-        TextColumn("[progress.description]{task.description}"),
-        BarColumn(),
-        TextColumn("{task.completed}/{task.total}"),
-        TimeRemainingColumn(),
-        console=console
-    ) as progress:
-        task = progress.add_task("[cyan]Processing files...", total=len(all_files))
-        
-        with ProcessPoolExecutor(max_workers=config.MAX_WORKERS) as executor:
-            for result in executor.map(process_file, all_files):
-                documents.extend(result["documents"])
-                document_ids.extend(result["document_ids"])
-                document_metadatas.extend(result["document_metadatas"])
-                progress.update(task, advance=1)
+    with ProcessPoolExecutor(max_workers=config.MAX_WORKERS) as executor:
+        results = list(tqdm(executor.map(process_file, all_files), total=len(all_files), desc="Processing files"))
 
-    console.print(f"[bold green]Processed[/bold green] {len(documents)} documents")
+    for result in results:
+        documents.extend(result["documents"])
+        document_ids.extend(result["document_ids"])
+        document_metadatas.extend(result["document_metadatas"])
+
+    logger.info(f"Processed {len(documents)} documents")
 
     RAG = RAGPretrainedModel.from_pretrained(model_name)
     
     index_path = os.path.join(".ragatouille", "colbert", "indexes", index_name)
     os.makedirs(os.path.dirname(index_path), exist_ok=True)
 
-    console.print("[bold cyan]Indexing documents...[/bold cyan]")
-    RAG.index(
-        collection=documents,
-        document_ids=document_ids,
-        document_metadatas=document_metadatas,
-        index_name=index_name,
-        overwrite_index=True,
-        max_document_length=256,
-        split_documents=True,
-        bsize=config.BATCH_SIZE,
-        use_faiss=False
-    )
+    # Add error handling for indexing
+    try:
+        RAG.index(
+            collection=documents,
+            document_ids=document_ids,
+            document_metadatas=document_metadatas,
+            index_name=index_name,
+            overwrite_index=True,
+            max_document_length=256,
+            split_documents=True,
+            bsize=config.BATCH_SIZE,
+            use_faiss=False
+        )
+    except Exception as e:
+        logger.error(f"Error during indexing: {str(e)}")
+        raise
 
-    console.print(f"[bold green]Indexing completed. Index created at:[/bold green] {index_path}")
+    logger.info(f"Indexing completed. Index created at: {index_path}")
     return index_path
 
 if __name__ == "__main__":
@@ -157,7 +166,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     index_path = index_documents(args.input_directory, args.index_name)
-    console.print(f"[bold green]Index created at:[/bold green] {index_path}")
-
-# Explicitly export the functions
-__all__ = ['index_documents', 'read_file', 'process_file']
+    print(f"Index created at: {index_path}")
