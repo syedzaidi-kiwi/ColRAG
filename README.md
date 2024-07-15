@@ -36,7 +36,7 @@ ColRAG is a powerful RAG (Retrieval-Augmented Generation) pipeline using ColBERT
 You can install ColRAG using pip:
 
 ```bash
-pip install colrag
+pip install colrag --upgrade
 ```
 
 You can also install ColRAG using poetry (recommended):
