@@ -8,12 +8,10 @@ import PyPDF2
 from ragatouille import RAGPretrainedModel
 from colrag.config import config
 from colrag.logger import get_logger
-from concurrent.futures import ProcessPoolExecutor
-from rich.progress import Progress, TextColumn, BarColumn, TimeRemainingColumn
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from rich.console import Console
 import warnings
-from itertools import islice
-from tqdm import tqdm 
+from tqdm import tqdm
 
 warnings.filterwarnings("ignore")
 
@@ -28,11 +26,11 @@ def read_pdf(file_path: str) -> str:
             text += page.extract_text()
     return text
 
-def read_csv(file_path: str) -> List[str]:
+def read_csv(file_path: str) -> List[Dict[str, Any]]:
     df = pd.read_csv(file_path)
     return df.to_dict('records')
 
-def read_excel(file_path: str) -> List[str]:
+def read_excel(file_path: str) -> List[Dict[str, Any]]:
     df = pd.read_excel(file_path)
     return df.to_dict('records')
 
@@ -80,6 +78,7 @@ def read_file(file_path: str) -> Any:
     else:
         raise ValueError(f"Unsupported file format: {extension}")
 
+
 def process_file(file_path: str) -> Dict[str, Any]:
     try:
         content = read_file(file_path)
@@ -89,7 +88,7 @@ def process_file(file_path: str) -> Dict[str, Any]:
             document_metadatas = []
             for i, doc in enumerate(content):
                 if not isinstance(doc, str):
-                    doc = str(doc)  # Convert to string if it's not already
+                    doc = json.dumps(doc)  # Convert to JSON string if it's not already
                 documents.append(doc)
                 document_ids.append(f"{file_path}_{i}")
                 document_metadatas.append({"source": file_path})
@@ -100,7 +99,7 @@ def process_file(file_path: str) -> Dict[str, Any]:
             }
         else:
             if not isinstance(content, str):
-                content = str(content)  # Convert to string if it's not already
+                content = json.dumps(content)  # Convert to JSON string if it's not already
             return {
                 "documents": [content],
                 "document_ids": [file_path],
@@ -110,6 +109,7 @@ def process_file(file_path: str) -> Dict[str, Any]:
         logger.error(f"Error processing file {file_path}: {str(e)}")
         return {"documents": [], "document_ids": [], "document_metadatas": []}
 
+    
 def index_documents(input_directory: str, index_name: str, model_name: str = config.MODEL_NAME) -> str:
     logger.info(f"Starting indexing process for directory: {input_directory}")
     
@@ -123,12 +123,12 @@ def index_documents(input_directory: str, index_name: str, model_name: str = con
     document_metadatas = []
 
     with ProcessPoolExecutor(max_workers=config.MAX_WORKERS) as executor:
-        results = list(tqdm(executor.map(process_file, all_files), total=len(all_files), desc="Processing files"))
-
-    for result in results:
-        documents.extend(result["documents"])
-        document_ids.extend(result["document_ids"])
-        document_metadatas.extend(result["document_metadatas"])
+        futures = {executor.submit(process_file, file): file for file in all_files}
+        for future in tqdm(as_completed(futures), total=len(all_files), desc="Processing files"):
+            result = future.result()
+            documents.extend(result["documents"])
+            document_ids.extend(result["document_ids"])
+            document_metadatas.extend(result["document_metadatas"])
 
     logger.info(f"Processed {len(documents)} documents")
 
