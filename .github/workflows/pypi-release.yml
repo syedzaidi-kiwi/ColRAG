@@ -1,14 +1,8 @@
-name: Publish to PyPI and Codecov
+name: Publish to PyPI
 
 on:
   release:
     types: [published]
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
 
 jobs:
   build-and-publish:
@@ -30,17 +24,6 @@ jobs:
 
       - name: Install dependencies
         run: poetry install
-
-      - name: Run tests and generate coverage report
-        run: |
-          poetry run pytest --cov=colrag --cov-report=xml
-
-      - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v4.0.1
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./coverage.xml
-          fail_ci_if_error: true
 
       - name: Build the package
         run: poetry build
