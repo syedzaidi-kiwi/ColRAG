@@ -1,4 +1,4 @@
-__version__ = "0.1.8"  # Update this to your current version
+__version__ = "0.1.9"  # Update this to your current version
 
 from .indexer import index_documents, read_file, process_file
 from .retriever import load_model_from_index, retrieve_and_rerank_documents, retrieve_and_rerank_multiple_documents
